@@ -12,6 +12,8 @@ from collections import defaultdict
 import asyncio
 import os
 from dotenv import load_dotenv
+import sys
+import atexit
 
 load_dotenv()
 
@@ -19,6 +21,27 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID", "-1001234567890"))
 SHEVA = os.getenv("SHEVA")
 STATS_FILE = "stats.json"
+
+
+
+LOCKFILE = "bot.lock"
+
+# Проверка наличия lock-файла
+if os.path.exists(LOCKFILE):
+    print("⚠️ Бот уже запущен! Завершаю работу.")
+    sys.exit()
+
+# Создаём lock-файл
+with open(LOCKFILE, "w") as f:
+    f.write("running")
+
+# Удаляем lock при выходе
+@atexit.register
+def cleanup():
+    if os.path.exists(LOCKFILE):
+        os.remove(LOCKFILE)
+        print("🧹 Lock-файл удалён. Бот завершён корректно.")
+
 
 # Хранилище статистики
 
@@ -71,10 +94,25 @@ async def start(message: types.Message):
 
 @dp.message(Command("nuchotam"))
 async def send_sheva_photo(message: types.Message):
-    await send_weekly_report_check()
-    # sheva_link = os.getenv("SHEVA")
-    # photo_url = get_direct_link(sheva_link)
-    # await message.answer_photo(photo_url, caption="Легенда 😎")
+    # sorted_stats = sorted(stats.items(), key=lambda x: x[1]["messages"] + x[1]["reactions"], reverse=True)
+    sorted_stats = sorted(stats.items(), key=lambda x: x[1]["messages"], reverse=True)
+
+    if not sorted_stats:
+        message = "ВЫ ЧО ПОАХУЕВАЛИ? Чат мертв... никто не писал... СТАТИСТИКИ НЕ БУДЕТ"
+        await bot.send_message(GROUP_ID, message)
+        return
+
+    report = "<b>📊 ТОП участников за неделю:</b>\n\n"
+    for i, (user_id, data) in enumerate(sorted_stats[:5]):
+        try:
+            user = await bot.get_chat_member(GROUP_ID, int(user_id))
+            name = user.user.full_name
+        except:
+            name = f"Пользователь {user_id}"
+        # report += f"{i + 1}. {name} — 💬 {data['messages']} | ❤️ {data['reactions']}\n"
+        report += f"{i + 1}. {name} — 💬 {data['messages']}\n"
+
+    await bot.send_message(GROUP_ID, report)
 
 
 # Обработка входящих сообщений
@@ -122,28 +160,6 @@ async def handle_messages(message: types.Message):
 #             user_stats[user_id]["reactions_received"] += count
 #     except Exception as e:
 #         print("Ошибка при проверке реакций:", e)
-
-async def send_weekly_report_check():
-    # sorted_stats = sorted(stats.items(), key=lambda x: x[1]["messages"] + x[1]["reactions"], reverse=True)
-    sorted_stats = sorted(stats.items(), key=lambda x: x[1]["messages"], reverse=True)
-
-    if not sorted_stats:
-        message = "ВЫ ЧО ПОАХУЕВАЛИ? Чат мертв... никто не писал... СТАТИСТИКИ НЕ БУДЕТ"
-        await bot.send_message(GROUP_ID, message)
-        return
-
-    report = "<b>📊 ТОП участников за неделю:</b>\n\n"
-    for i, (user_id, data) in enumerate(sorted_stats[:5]):
-        try:
-            user = await bot.get_chat_member(GROUP_ID, int(user_id))
-            name = user.user.full_name
-        except:
-            name = f"Пользователь {user_id}"
-        # report += f"{i + 1}. {name} — 💬 {data['messages']} | ❤️ {data['reactions']}\n"
-        report += f"{i + 1}. {name} — 💬 {data['messages']}\n"
-
-
-    await bot.send_message(GROUP_ID, report)
 
 # Рассылка отчета по топу
 async def send_weekly_report():
