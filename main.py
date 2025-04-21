@@ -16,6 +16,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 GROUP_ID = int(os.getenv("GROUP_ID", "-1001234567890"))
+SHEVA = os.getenv("SHEVA")
 STATS_FILE = "stats.json"
 
 # Хранилище статистики
@@ -54,11 +55,15 @@ dp = Dispatcher()
 async def start(message: types.Message):
     await message.answer("По голове себе постучи..")
 
-    with open("sheva.jpg", "rb") as f:
-        photo_bytes = f.read()
+    file_id = SHEVA.split("/d/")[1].split("/")[0]
+    direct_link = f"https://drive.google.com/uc?export=download&id={file_id}"
+    await bot.send_photo(chat_id=GROUP_ID, photo=direct_link)
 
-    photo = BufferedInputFile(photo_bytes, filename="sheva.jpg")
-    await bot.send_photo(chat_id=GROUP_ID, photo=photo)
+    # with open("sheva.jpg", "rb") as f:
+    #     photo_bytes = f.read()
+    #
+    # photo = BufferedInputFile(photo_bytes, filename="sheva.jpg")
+    # await bot.send_photo(chat_id=GROUP_ID, photo=photo)
     # photo = InputFile("sheva.jpg")
     # await bot.send_photo(GROUP_ID, photo=photo)
     # await bot.send_photo(GROUP_ID, photo='sheva.jpg')
